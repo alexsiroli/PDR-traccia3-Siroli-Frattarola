@@ -157,6 +157,11 @@ def manage_new_client(client_index, ignored):
     # invia il nome dell'avversario
     for k in range(len(clients)):
         if clients[k]['present'] is True:
+            if k == i:
+                for s in range(len(clients)):
+                    if s != k:
+                        clients[k].send(pd.encode({'p_id': pt.Packet.new_player, 'name': clients[s]['name'],
+                                                   'id': clients[s]['id']}))
             clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player, 'name': clients[i]['name'],
                                                  'id': clients[i]['id']}))
 
