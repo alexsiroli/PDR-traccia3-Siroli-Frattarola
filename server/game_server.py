@@ -5,6 +5,7 @@
 import tkinter as tk
 import socket
 import threading
+import packet_decoder as pd
 import random as rnd
 from time import sleep
 
@@ -78,7 +79,7 @@ def stop_server():
 def send_game_start():
     global clients
     for c in clients:
-        c['Client'].send("start").encode()
+        c['client'].send("start").encode()
 
 
 def accept_clients(the_server, y):
@@ -86,7 +87,7 @@ def accept_clients(the_server, y):
     while len(clients) < clients_number:
         client, addr = the_server.accept()
         clients.append(create_new_client(addr, client))
-        print(clients[-1]['Addr'])
+        print(clients[-1]['addr'])
         # utilizza un thread in modo da non intasare il thread della gui
         threading._start_new_thread(manage_new_client, (len(clients) - 1, ""))
     sleep(1)
@@ -94,7 +95,7 @@ def accept_clients(the_server, y):
 
 
 def create_new_client(addr, client):
-    return {'Client': client, 'Addr': addr, 'Name': "", 'Answer': -1, 'Score': 0, 'Present': True, 'Id': len(clients)}
+    return {'client': client, 'addr': addr, 'name': "", 'answer': -1, 'score': 0, 'present': True, 'id': len(clients)}
 
 
 # controlla se utente ha chiesto una domanda
@@ -116,22 +117,22 @@ def is_an_answer(player_choice):
 def player_left(index):
     global clients
     # send removed player to all
-    clients[int(index)]['Present'] = False
+    clients[int(index)]['present'] = False
     update_client_names_display()
 
 
 def update_score(answer, index):
     i = int(index)
-    if answer == clients[i]['Answer']:
-        clients[i]['Score'] += 1
+    if answer == clients[i]['answer']:
+        clients[i]['score'] += 1
     else:
-        clients[i]['Score'] -= 1
+        clients[i]['score'] -= 1
 
 
 def game_over(i):
     global clients, max_points
     i = int(i)
-    if clients[i]['Score'] == max_points:
+    if clients[i]['score'] == max_points:
         return True
     return False
 
@@ -140,7 +141,7 @@ def stop_game(i):
     global clients, game_is_over
     game_is_over = True
     for c in clients:
-        c['Client'].send(("winner=" + clients[int(i)]['Id']).encode())
+        c['client'].send(pd.encode({"winner": clients[int(i)]['id']}))
 
 
 def manage_new_client(client_index, ignored):
@@ -148,17 +149,17 @@ def manage_new_client(client_index, ignored):
 
     # riceve il nome del client
     i = int(client_index)
-    clients[i]['Name'] = clients[i]['Client'].recv(BUFFER_SIZE).decode()
+    clients[i]['name'] = pd.decode(clients[i]['client'].recv(BUFFER_SIZE))['name']
     update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
     # invia il nome dell'avversario
     for k in range(len(clients)):
         if k != i:
-            clients[k]['Client'].send(("opponent_name=" + clients[i]['Name']).encode())
+            clients[k]['client'].send(pd.encode({'opponent_name':clients[i]['name']}))
 
     # rimane in attesa
     player_loop(i)
     try:
-        clients[i]['Socket'].close()
+        clients[i]['socket'].close()
     except Exception as e:
         pass
 
@@ -168,7 +169,7 @@ def player_loop(i):
     i = int(i)
     while not game_is_over:
         try:
-            data = clients[i]['Client'].recv(BUFFER_SIZE)
+            data = clients[i]['client'].recv(BUFFER_SIZE)
         except Exception as e:
             player_left(i)
             break
@@ -184,7 +185,7 @@ def player_loop(i):
             # invia i nuovi punteggi a tutti e manda una nuova domanda
             update_score(player_choice.decode(), i)
             for c in clients:
-                c['Client'].send(("client=" + clients[i]['Id'] + "$score=" + clients[i]['Score']).encode())
+                c['client'].send(pd.encode({'client': clients[i]['id'], 'score': clients[i]['score']}))
             if game_over(i):
                 stop_game(i)
         print(player_choice.decode())
@@ -193,8 +194,8 @@ def player_loop(i):
 def send_new_question(i):
     global clients
     question = generate_new_question()
-    clients[int(i)]['Answer'] = question[1]
-    clients[int(i)]['Client'].send(("question=" + question[0]).encode())
+    clients[int(i)]['answer'] = question[1]
+    clients[int(i)]['client'].send(pd.encode({'question': question[0]}))
 
 
 def generate_new_question():
@@ -210,8 +211,8 @@ def update_client_names_display():
     tkDisplay.delete('1.0', tk.END)
 
     for c in clients:
-        if c['Present'] is True:
-            tkDisplay.insert(tk.END, c['Name'] + "\n")
+        if c['present'] is True:
+            tkDisplay.insert(tk.END, c['name'] + "\n")
     tkDisplay.config(state=tk.DISABLED)
 
 

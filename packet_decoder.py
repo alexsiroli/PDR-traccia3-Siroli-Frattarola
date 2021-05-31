@@ -1,9 +1,12 @@
+import socket
+
 VALUE_END = '$'
 KEY_END = '='
 
 
+# returns a dictionary with key-values from the string
 def decode(string):
-    string = str(string)
+    string = string.decode()
     actual_word = ""
     decoded = {}
     key = ""
@@ -21,11 +24,12 @@ def decode(string):
     return decoded
 
 
+# return a string from a dictionary
 def encode(values):
     string = ""
     for v in values:
         string += str(v['key']) + KEY_END + str(v['value']) + VALUE_END
-    return string[:-1]
+    return string[:-1].encode
 
 # print(decode("ciao=1$bau=2"))
 # dictionary = [{'key': "marco", 'value': 4}, {'key': "arr", 'value': 4}]
