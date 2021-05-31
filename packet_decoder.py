@@ -27,7 +27,6 @@ def encode(values):
         string += str(v['key']) + KEY_END + str(v['value']) + VALUE_END
     return string[:-1]
 
-
-print(decode("ciao=1$bau=2"))
-dictionary = [{'key': "marco", 'value': 4}, {'key': "arr", 'value': 4}]
-print(encode(dictionary))
+# print(decode("ciao=1$bau=2"))
+# dictionary = [{'key': "marco", 'value': 4}, {'key': "arr", 'value': 4}]
+# print(encode(dictionary))
