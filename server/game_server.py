@@ -7,6 +7,7 @@ import socket
 import threading
 import packet_decoder as pd
 import random as rnd
+import packet_type as pt
 from time import sleep
 
 BUFFER_SIZE = 4096
@@ -79,7 +80,7 @@ def stop_server():
 def send_game_start():
     global clients
     for c in clients:
-        c['client'].send("start").encode()
+        c['client'].send(pd.encode({'p_id': pt.Packet.start}))
 
 
 def accept_clients(the_server, y):
@@ -99,25 +100,27 @@ def create_new_client(addr, client):
 
 
 # controlla se utente ha chiesto una domanda
-def ask_for_choice(player_choice):
-    if player_choice.decode() == "get":
+def ask_for_question(data):
+    if pd.decode(data)['p_id'] == pt.Packet.new_question_request:
         return True
     return False
 
 
-def is_an_answer(player_choice):
-    try:
-        player_choice.decode().get("answer")
+def is_an_answer(data):
+    if pd.decode(data)['p_id'] == pt.Packet.answer:
         return True
-    except Exception as e:
-        return False
+    return False
 
 
-# Funzione per gestire i messaggi dal client corrente
+# Funzione per gestire l'uscita di un client
 def player_left(index):
     global clients
     # send removed player to all
-    clients[int(index)]['present'] = False
+    index = int(index)
+    clients[index]['present'] = False
+    for c in clients:
+        if c['present'] is True:
+            c['client'].send(pd.encode({'p_id': pt.Packet.player_left, 'client': clients[index]['id']}))
     update_client_names_display()
 
 
@@ -141,7 +144,7 @@ def stop_game(i):
     global clients, game_is_over
     game_is_over = True
     for c in clients:
-        c['client'].send(pd.encode({"winner": clients[int(i)]['id']}))
+        c['client'].send(pd.encode({"p_id": pt.Packet.game_over, "winner": clients[int(i)]['id']}))
 
 
 def manage_new_client(client_index, ignored):
@@ -153,8 +156,9 @@ def manage_new_client(client_index, ignored):
     update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
     # invia il nome dell'avversario
     for k in range(len(clients)):
-        if k != i:
-            clients[k]['client'].send(pd.encode({'opponent_name':clients[i]['name']}))
+        if k != i and clients[k]['present'] is True:
+            clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player, 'opponent_name': clients[i]['name'],
+                                                 'id': clients[i]['id']}))
 
     # rimane in attesa
     player_loop(i)
@@ -168,6 +172,7 @@ def player_loop(i):
     global clients, game_is_over
     i = int(i)
     while not game_is_over:
+        # estrae il messaggio del giocatore dai dati ricevuti
         try:
             data = clients[i]['client'].recv(BUFFER_SIZE)
         except Exception as e:
@@ -175,27 +180,24 @@ def player_loop(i):
             break
         if not data:
             break
-
-        # estrae il messaggio del giocatore dai dati ricevuti
-        player_choice = data[11:len(data)]
-
-        if ask_for_choice(player_choice):
+        if ask_for_question(data):
+            # invia una nuova domanda
             send_new_question(i)
-        elif is_an_answer(player_choice):
+        elif is_an_answer(data):
             # invia i nuovi punteggi a tutti e manda una nuova domanda
-            update_score(player_choice.decode(), i)
+            update_score(data['answer'], i)
             for c in clients:
-                c['client'].send(pd.encode({'client': clients[i]['id'], 'score': clients[i]['score']}))
+                if c['present'] is True:
+                    c['client'].send(pd.encode({'p_id': pt.Packet.player_score, 'client': clients[i]['id'], 'score': clients[i]['score']}))
             if game_over(i):
                 stop_game(i)
-        print(player_choice.decode())
 
 
 def send_new_question(i):
     global clients
     question = generate_new_question()
     clients[int(i)]['answer'] = question[1]
-    clients[int(i)]['client'].send(pd.encode({'question': question[0]}))
+    clients[int(i)]['client'].send(pd.encode({'p_id': pt.Packet.new_question, 'question': question[0]}))
 
 
 def generate_new_question():
