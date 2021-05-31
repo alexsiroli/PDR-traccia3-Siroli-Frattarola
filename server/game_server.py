@@ -156,7 +156,7 @@ def manage_new_client(client_index, ignored):
     update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
     # invia il nome dell'avversario
     for k in range(len(clients)):
-        if k != i and clients[k]['present'] is True:
+        if clients[k]['present'] is True:
             clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player, 'opponent_name': clients[i]['name'],
                                                  'id': clients[i]['id']}))
 
