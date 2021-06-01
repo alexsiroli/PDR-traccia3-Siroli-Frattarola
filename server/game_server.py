@@ -101,13 +101,13 @@ def create_new_client(addr, client):
 
 # controlla se utente ha chiesto una domanda
 def ask_for_question(data):
-    if pd.decode(data)['p_id'] == pt.Packet.new_question_request.value:
+    if int(pd.decode(data)['p_id']) == pt.Packet.new_question_request.value:
         return True
     return False
 
 
 def is_an_answer(data):
-    if pd.decode(data)['p_id'] == pt.Packet.answer.value:
+    if int(pd.decode(data)['p_id']) == pt.Packet.answer.value:
         return True
     return False
 
