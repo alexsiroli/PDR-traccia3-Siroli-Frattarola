@@ -185,6 +185,7 @@ def manage_messages_from_server(sck, m):
     while True:
         while True:
             data = sck.recv(BUFFER_SIZE)
+            update_scores()
             if not data:
                 break
             data = pd.decode(data)
@@ -240,19 +241,17 @@ def manage_messages_from_server(sck, m):
                     if opp["id"] == data["winner"]:
                         opp["score"] = "Vincitore"
                 update_scores()
-                lbl_final_result["text"] = "PARTITA TERMINATA!"
                 break
 
         lbl_outcome["text"] = ""
         lbl_rules["text"] = ""
         lbl_result["text"] = ""
-        lbl_final_result["text"] = ""
+        lbl_final_result["text"] = "NUOVA PARTITA A BREVE..."
         for player in players_data:
             if player["score"] == "Eliminato":
                 players_data.remove(player)
             else:
                 player["score"] = 0
-        update_scores()
 
 
 window_main.mainloop()
