@@ -1,11 +1,10 @@
-# Laboratorio di Programmazione di Reti - Università di Bologna - Campus di Cesena
-# Giovanni Pau - Andrea Piroddi
 import random
 import tkinter as tk
 from tkinter import PhotoImage
 from tkinter import messagebox
 import socket
 import packet_decoder as pd
+import packet_type as pt
 from time import sleep
 import threading
 
@@ -17,7 +16,7 @@ window_main.title("Il Gioco delle Tabelline")
 server = None
 HOST_ADDR = '127.0.0.1'
 HOST_PORT = 8080
-players_data = []  #id, nome, punteggio
+players_data = []  # id, name, score
 BUFFER_SIZE = 4096
 your_name = ""
 your_id = ""
@@ -125,7 +124,7 @@ def connect_to_server(name):
     try:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.connect((HOST_ADDR, HOST_PORT))
-        server.send(pd.encode({'p_id': 8, 'name': name}))  # Invia il nome al server dopo la connessione
+        server.send(pd.encode({'p_id': pt.Packet.new_player_name.value, 'name': name}))  # Invia il nome al server dopo la connessione
 
         # disable widgets
         btn_connect.config(state=tk.DISABLED)
@@ -147,7 +146,7 @@ def choice(arg):
     if arg != rnd:
         lbl_outcome["text"] = "Complimenti! :)"
         lbl_outcome["color"] = "green"
-        server.send(pd.encode({"p_id": 2}))
+        server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
         lbl_rules = tk.Label(rules_frame, text="Rispondi alla seguente domanda:")
         lbl_rules.pack()
         enable_disable_buttons("disable")
@@ -163,14 +162,14 @@ def update_scores():
 
 
 def manage_messages_from_server(sck, m):
-    global lbl_question, your_id, my_score
+    global lbl_question, your_id
 
     while True:
         data = sck.recv(BUFFER_SIZE)
         if not data:
             break
         data = pd.decode(data)
-        if data["p_id"] == 0:  # start
+        if data["p_id"] == pt.Packet.start.value:
             enable_disable_buttons("active")
             break
         if data["name"] == your_name:
@@ -185,13 +184,14 @@ def manage_messages_from_server(sck, m):
             break
         data = pd.decode(data)
 
-        if data["p_id"] == 3:  # mi arriva una domanda nuova
+        if data["p_id"] == pt.Packet.new_question.value:  # mi arriva una domanda nuova
             enable_disable_buttons("disable")
             lbl_question = tk.Label(form_frame, text=data["question"])
             ent_answer.config(state=tk.ACTIVE)
             btn_send.config(state=tk.ACTIVE)
-        elif data["p_id"] == 5:  # mi arriva il punteggio di qualcuno
+        elif data["p_id"] == pt.Packet.player_score.value:  # mi arriva il punteggio di qualcuno
             if data["client"] == your_id:
+                my_score = ""
                 for player in players_data:
                     if player["id"] == your_id:
                         my_score = player["score"]
@@ -208,12 +208,12 @@ def manage_messages_from_server(sck, m):
                     if opp["id"] == data["client"]:
                         opp["score"] = data["score"]
                 update_scores()
-        elif data["p_id"] == 6:  # uno è stato eliminato
+        elif data["p_id"] == pt.Packet.player_left.value:  # uno è stato eliminato
             for opp in players_data:
                 if opp["id"] == data["client"]:
                     opp["score"] = "Eliminato"
             update_scores()
-        elif data["p_id"] == 7:  # se uno ha vinto
+        elif data["p_id"] == pt.Packet.game_over.value:  # se uno ha vinto
             for opp in players_data:
                 if opp["id"] == data["client"]:
                     opp["score"] = "Vincitore"
