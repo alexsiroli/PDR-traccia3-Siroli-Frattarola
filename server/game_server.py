@@ -46,7 +46,7 @@ server = None
 HOST_ADDR = '127.0.0.1'
 HOST_PORT = 8080
 clients = []
-clients_number = 3
+clients_number = 1
 max_points = 3
 game_is_over = False
 
@@ -80,7 +80,7 @@ def stop_server():
 def send_game_start():
     global clients
     for c in clients:
-        c['client'].send(pd.encode({'p_id': pt.Packet.start}))
+        c['client'].send(pd.encode({'p_id': pt.Packet.start.value}))
 
 
 def accept_clients(the_server, y):
