@@ -190,7 +190,7 @@ def player_loop(i):
             send_new_question(i)
         elif is_an_answer(data):
             # invia i nuovi punteggi a tutti e manda una nuova domanda
-            update_score(data['answer'], i)
+            update_score(int(data['answer']), i)
             for c in clients:
                 if c['present'] is True:
                     c['client'].send(pd.encode({'p_id': pt.Packet.player_score.value, 'client': clients[i]['id'],
