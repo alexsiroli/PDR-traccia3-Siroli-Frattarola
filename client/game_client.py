@@ -100,6 +100,11 @@ def on_closing():
     window_main.destroy()
 
 
+def connection_interrupted():
+    tk.messagebox.showerror(title="Errore", message="La sessione è stata chiusa.")
+    on_closing()
+
+
 window_main.protocol("WM_DELETE_WINDOW", on_closing)
 
 
@@ -118,12 +123,16 @@ def send_answer():
     global server
     try:
         result = int(ent_answer.get())
-        server.send(pd.encode({"p_id": 4, "answer": result}))
+        try:
+            server.send(pd.encode({"p_id": 4, "answer": result}))
+        except:
+            connection_interrupted()
         ent_answer.delete(0, 'end')
         ent_answer.config(state=tk.DISABLED)
         btn_send.config(state=tk.DISABLED)
     except ValueError:
         tk.messagebox.showerror(title="Errore", message="Devi inserire un numero!")
+
 
 
 def connect():
@@ -140,7 +149,11 @@ def connect_to_server(name):
     try:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.connect((HOST_ADDR, HOST_PORT))
-        server.send(pd.encode({'p_id': pt.Packet.new_player_name.value, 'name': name}))  # Invia il nome al server dopo la connessione
+        try:
+            server.send(pd.encode(
+            {'p_id': pt.Packet.new_player_name.value, 'name': name}))  # Invia il nome al server dopo la connessione
+        except:
+            connection_interrupted()
         lbl_final_result["text"] = "LA PARTITA STA PER COMINCIARE..."
 
         # disable widgets
@@ -163,7 +176,10 @@ def choice(arg):
     if arg != rnd:
         lbl_outcome["text"] = "Complimenti! :)"
         lbl_outcome.configure(foreground="green")
-        server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
+        try:
+            server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
+        except:
+            connection_interrupted()
         lbl_rules["text"] = "Rispondi alla seguente domanda:"
         lbl_rules.pack()
         enable_disable_buttons("disable")
@@ -184,9 +200,14 @@ def manage_messages_from_server(sck, m):
 
     while True:
         while True:
-            data = sck.recv(BUFFER_SIZE)
+            data = ""
+            try:
+                data = sck.recv(BUFFER_SIZE)
+            except:
+                connection_interrupted()
             update_scores()
             if not data:
+                connection_interrupted()
                 break
             data = pd.decode(data)
             if int(data["p_id"]) == pt.Packet.start.value:
@@ -196,12 +217,17 @@ def manage_messages_from_server(sck, m):
             if data["name"] == your_name:
                 your_id = data["id"]
             players_data.append({"name": data["name"], "id": data["id"], "score": 0})
-            players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(players_data[-1]["score"]))
+            players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(
+                players_data[-1]["score"]))
             players_data[-1]["label"].pack()
 
         while True:  # finche non è finita la partita
-            data = sck.recv(BUFFER_SIZE)
+            try:
+                data = sck.recv(BUFFER_SIZE)
+            except:
+                connection_interrupted()
             if not data:
+                connection_interrupted()
                 break
             data = pd.decode(data)
 
@@ -224,8 +250,10 @@ def manage_messages_from_server(sck, m):
                         lbl_result["text"] = "Errato! -1"
                         lbl_result.configure(foreground="red")
                     update_scores()
-                    server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
-
+                    try:
+                        server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
+                    except:
+                        connection_interrupted()
                 else:
                     for opp in players_data:
                         if opp["id"] == data["client"]:
@@ -250,6 +278,7 @@ def manage_messages_from_server(sck, m):
         lbl_final_result["text"] = "NUOVA PARTITA A BREVE..."
         for player in players_data:
             if player["score"] == "Eliminato":
+                player["label"].destroy()
                 players_data.remove(player)
             else:
                 player["score"] = 0
