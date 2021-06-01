@@ -5,7 +5,6 @@ from tkinter import messagebox
 import socket
 import packet_decoder as pd
 import packet_type as pt
-from time import sleep
 import threading
 
 # FINESTRA DI GIOCO PRINCIPALE
@@ -174,7 +173,7 @@ def manage_messages_from_server(sck, m):
             break
         if data["name"] == your_name:
             your_id = data["id"]
-        players_data.append({"name": data["name"], "id": data["id"]})
+        players_data.append({"name": data["name"], "id": data["id"], "score": 0})
         players_data[-1]["label"] = tk.Label(ranking_frame, text=data["name"] + " -> " + data["score"])
         players_data[-1]["label"].pack()
 
@@ -191,12 +190,12 @@ def manage_messages_from_server(sck, m):
             btn_send.config(state=tk.ACTIVE)
         elif data["p_id"] == pt.Packet.player_score.value:  # mi arriva il punteggio di qualcuno
             if data["client"] == your_id:
-                my_score = ""
+                your_score = ""
                 for player in players_data:
                     if player["id"] == your_id:
-                        my_score = player["score"]
+                        your_score = player["score"]
                         player["score"] = data["score"]
-                if data["score"] > my_score:
+                if data["score"] > your_score:
                     lbl_result["text"] = "Giusto! +1"
                     lbl_result["color"] = "green"
                 else:
@@ -220,9 +219,6 @@ def manage_messages_from_server(sck, m):
             update_scores()
             lbl_final_result["text"] = "PARTITA TERMINATA!"
             break
-
-            # Avvia il timer
-            # hreading._start_new_thread(count_down, (game_timer, ""))
 
     sck.close()
 
