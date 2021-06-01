@@ -65,6 +65,7 @@ button_frame.pack()
 rules_frame = tk.Frame(middle_frame)
 lbl_outcome = tk.Label(rules_frame, text="", font="Helvetica 13 bold")
 lbl_outcome.pack()
+lbl_rules = tk.Label(rules_frame, text="")
 rules_frame.pack(side=tk.TOP)
 
 form_frame = tk.Frame(middle_frame)
@@ -140,6 +141,7 @@ def connect_to_server(name):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.connect((HOST_ADDR, HOST_PORT))
         server.send(pd.encode({'p_id': pt.Packet.new_player_name.value, 'name': name}))  # Invia il nome al server dopo la connessione
+        lbl_final_result["text"] = "LA PARTITA STA PER COMINCIARE..."
 
         # disable widgets
         btn_connect.config(state=tk.DISABLED)
@@ -162,12 +164,13 @@ def choice(arg):
         lbl_outcome["text"] = "Complimenti! :)"
         lbl_outcome.configure(foreground="green")
         server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
-        lbl_rules = tk.Label(rules_frame, text="Rispondi alla seguente domanda:")
+        lbl_rules["text"] = "Rispondi alla seguente domanda:"
         lbl_rules.pack()
         enable_disable_buttons("disable")
     else:
         lbl_outcome["text"] = "Mi dispiace :("
         lbl_outcome.configure(foreground="red")
+        lbl_final_result["text"] = "SEI STATO ELIMINATO"
         server.close()
 
 
@@ -180,65 +183,76 @@ def manage_messages_from_server(sck, m):
     global lbl_question, your_id
 
     while True:
-        data = sck.recv(BUFFER_SIZE)
-        if not data:
-            break
-        data = pd.decode(data)
-        if int(data["p_id"]) == pt.Packet.start.value:
-            enable_disable_buttons("active")
-            break
-        if data["name"] == your_name:
-            your_id = data["id"]
-        players_data.append({"name": data["name"], "id": data["id"], "score": 0})
-        players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(players_data[-1]["score"]))
-        players_data[-1]["label"].pack()
+        while True:
+            data = sck.recv(BUFFER_SIZE)
+            if not data:
+                break
+            data = pd.decode(data)
+            if int(data["p_id"]) == pt.Packet.start.value:
+                enable_disable_buttons("active")
+                lbl_final_result["text"] = "PARTITA IN CORSO..."
+                break
+            if data["name"] == your_name:
+                your_id = data["id"]
+            players_data.append({"name": data["name"], "id": data["id"], "score": 0})
+            players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(players_data[-1]["score"]))
+            players_data[-1]["label"].pack()
 
-    while True:  # finche non è finita la partita
-        data = sck.recv(BUFFER_SIZE)
-        if not data:
-            break
-        data = pd.decode(data)
+        while True:  # finche non è finita la partita
+            data = sck.recv(BUFFER_SIZE)
+            if not data:
+                break
+            data = pd.decode(data)
 
-        if int(data["p_id"]) == pt.Packet.new_question.value:  # mi arriva una domanda nuova
-            enable_disable_buttons("disable")
-            lbl_question["text"] = data["question"]
-            ent_answer.config(state=tk.NORMAL)
-            btn_send.config(state=tk.ACTIVE)
-        elif int(data["p_id"]) == pt.Packet.player_score.value:  # mi arriva il punteggio di qualcuno
-            if data["client"] == your_id:
-                your_score = 0
-                for player in players_data:
-                    if player["id"] == your_id:
-                        your_score = int(player["score"])
-                        player["score"] = data["score"]
-                if int(data["score"]) > your_score:
-                    lbl_result["text"] = "Giusto! +1"
-                    lbl_result.configure(foreground="green")
+            if int(data["p_id"]) == pt.Packet.new_question.value:  # mi arriva una domanda nuova
+                enable_disable_buttons("disable")
+                lbl_question["text"] = data["question"]
+                ent_answer.config(state=tk.NORMAL)
+                btn_send.config(state=tk.ACTIVE)
+            elif int(data["p_id"]) == pt.Packet.player_score.value:  # mi arriva il punteggio di qualcuno
+                if data["client"] == your_id:
+                    your_score = 0
+                    for player in players_data:
+                        if player["id"] == your_id:
+                            your_score = int(player["score"])
+                            player["score"] = data["score"]
+                    if int(data["score"]) > your_score:
+                        lbl_result["text"] = "Giusto! +1"
+                        lbl_result.configure(foreground="green")
+                    else:
+                        lbl_result["text"] = "Errato! -1"
+                        lbl_result.configure(foreground="red")
+                    update_scores()
+                    server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
+
                 else:
-                    lbl_result["text"] = "Errato! -1"
-                    lbl_result.configure(foreground="red")
-                update_scores()
-                server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
-
-            else:
+                    for opp in players_data:
+                        if opp["id"] == data["client"]:
+                            opp["score"] = data["score"]
+                    update_scores()
+            elif int(data["p_id"]) == pt.Packet.player_left.value:  # uno è stato eliminato
                 for opp in players_data:
                     if opp["id"] == data["client"]:
-                        opp["score"] = data["score"]
+                        opp["score"] = "Eliminato"
                 update_scores()
-        elif int(data["p_id"]) == pt.Packet.player_left.value:  # uno è stato eliminato
-            for opp in players_data:
-                if opp["id"] == data["client"]:
-                    opp["score"] = "Eliminato"
-            update_scores()
-        elif int(data["p_id"]) == pt.Packet.game_over.value:  # se uno ha vinto
-            for opp in players_data:
-                if opp["id"] == data["winner"]:
-                    opp["score"] = "Vincitore"
-            update_scores()
-            lbl_final_result["text"] = "PARTITA TERMINATA!"
-            break
+            elif int(data["p_id"]) == pt.Packet.game_over.value:  # se uno ha vinto
+                for opp in players_data:
+                    if opp["id"] == data["winner"]:
+                        opp["score"] = "Vincitore"
+                update_scores()
+                lbl_final_result["text"] = "PARTITA TERMINATA!"
+                break
 
-    sck.close()
+        lbl_outcome["text"] = ""
+        lbl_rules["text"] = ""
+        lbl_result["text"] = ""
+        lbl_final_result["text"] = ""
+        for player in players_data:
+            if player["score"] == "Eliminato":
+                players_data.remove(player)
+            else:
+                player["score"] = 0
+        update_scores()
 
 
 window_main.mainloop()
