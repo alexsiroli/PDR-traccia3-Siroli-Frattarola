@@ -115,10 +115,14 @@ def enable_disable_buttons(todo):
 
 def send_answer():
     global server
-    server.send(pd.encode({"p_id": 4, "answer": ent_answer.get()}))
-    ent_answer.delete(0, 'end')
-    ent_answer.config(state=tk.DISABLED)
-    btn_send.config(state=tk.DISABLED)
+    try:
+        result = int(ent_answer.get())
+        server.send(pd.encode({"p_id": 4, "answer": result}))
+        ent_answer.delete(0, 'end')
+        ent_answer.config(state=tk.DISABLED)
+        btn_send.config(state=tk.DISABLED)
+    except ValueError:
+        tk.messagebox.showerror(title="Errore", message="Devi inserire un numero!")
 
 
 def connect():
@@ -169,7 +173,7 @@ def choice(arg):
 
 def update_scores():
     for player in players_data:
-        player["label"]["text"] = player["name"] + " -> " + player["score"]
+        player["label"]["text"] = player["name"] + " -> " + str(player["score"])
 
 
 def manage_messages_from_server(sck, m):
