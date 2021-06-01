@@ -246,6 +246,7 @@ def manage_messages_from_server(sck, m):
         lbl_outcome["text"] = ""
         lbl_rules["text"] = ""
         lbl_result["text"] = ""
+        lbl_question["text"] = ""
         lbl_final_result["text"] = "NUOVA PARTITA A BREVE..."
         for player in players_data:
             if player["score"] == "Eliminato":
