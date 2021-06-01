@@ -196,7 +196,7 @@ def manage_new_client(client_index, is_new):
                                                      'id': clients[i]['id']}))
                 if k == i:
                     for s in range(len(clients)):
-                        if s != k:
+                        if s != k and clients[s]['present'] is True:
                             clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value,
                                                                  'name': clients[s]['name'],
                                                                  'id': clients[s]['id']}))
