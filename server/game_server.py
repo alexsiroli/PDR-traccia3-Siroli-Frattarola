@@ -209,7 +209,7 @@ def send_new_question(i):
 def generate_new_question():
     a = rnd.randint(0, 10)
     b = rnd.randint(0, 10)
-    return "%a * %b".format(a, b), int(a * b)
+    return "{} * {}".format(a, b), int(a * b)
 
 
 # Aggiorna la visualizzazione del nome del client quando un nuovo client si connette O
