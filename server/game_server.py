@@ -3,6 +3,7 @@
 
 # importiamo i moduli che utilizzeremo
 import tkinter as tk
+from tkinter import messagebox
 import socket
 import threading
 import packet_decoder as pd
@@ -20,8 +21,22 @@ topFrame = tk.Frame(window)
 btnStart = tk.Button(topFrame, text="Start", command=lambda: start_server())
 btnStart.pack(side=tk.LEFT)
 btnStop = tk.Button(topFrame, text="Stop", command=lambda: stop_server(), state=tk.DISABLED)
-btnStop.pack(side=tk.LEFT)
+btnStop.pack(side=tk.RIGHT)
 topFrame.pack(side=tk.TOP, pady=(5, 0))
+
+players_num_frame = tk.Frame(window)
+lbl_players = tk.Label(players_num_frame, text="Players number ->")
+lbl_players.pack(side=tk.LEFT)
+player_num_ent = tk.Entry(players_num_frame)
+player_num_ent.pack(side=tk.RIGHT)
+players_num_frame.pack(side=tk.TOP)
+
+points_num_frame = tk.Frame(window)
+lbl_points = tk.Label(points_num_frame, text="    Points to win ->")
+lbl_points.pack(side=tk.LEFT)
+points_num_ent = tk.Entry(points_num_frame)
+points_num_ent.pack(side=tk.RIGHT)
+points_num_frame.pack(side=tk.TOP)
 
 # Cornice centrale composta da due etichette per la visualizzazione delle informazioni sull'host e sulla porta
 middleFrame = tk.Frame(window)
@@ -46,28 +61,33 @@ server = None
 HOST_ADDR = '127.0.0.1'
 HOST_PORT = 8080
 clients = []
-clients_number = 1
+clients_number = 2
 max_points = 3
 game_is_over = False
 
 
 # Avvia la funzione server
 def start_server():
-    global server, HOST_ADDR, HOST_PORT
-    btnStart.config(state=tk.DISABLED)
-    btnStop.config(state=tk.NORMAL)
+    global server, HOST_ADDR, HOST_PORT,clients_number,max_points
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(socket.AF_INET)
+        print(socket.SOCK_STREAM)
 
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(socket.AF_INET)
-    print(socket.SOCK_STREAM)
+        server.bind((HOST_ADDR, HOST_PORT))
+        server.listen(5)  # il server è in ascolto per la connessione del client
+        clients_number = int(player_num_ent.get())
+        max_points = int(points_num_ent.get())
 
-    server.bind((HOST_ADDR, HOST_PORT))
-    server.listen(5)  # il server è in ascolto per la connessione del client
+        threading._start_new_thread(accept_clients, (server, ""))
 
-    threading._start_new_thread(accept_clients, (server, ""))
-
-    lblHost["text"] = "Address: " + HOST_ADDR
-    lblPort["text"] = "Port: " + str(HOST_PORT)
+        lblHost["text"] = "Address: " + HOST_ADDR
+        lblPort["text"] = "Port: " + str(HOST_PORT)
+        btnStart.config(state=tk.DISABLED)
+        btnStop.config(state=tk.NORMAL)
+    except ValueError as e:
+        print(e)
+        tk.messagebox.showerror(title="ERROR!", message="Invalid input")
 
 
 # Arresta la funzione server
@@ -144,7 +164,9 @@ def stop_game(i):
     global clients, game_is_over
     game_is_over = True
     for c in clients:
-        c['client'].send(pd.encode({"p_id": pt.Packet.game_over.value, "winner": clients[int(i)]['id']}))
+        if c['present'] is True:
+            c['client'].send(pd.encode({"p_id": pt.Packet.game_over.value, "winner": clients[int(i)]['id']}))
+    update_client_names_display()
 
 
 def manage_new_client(client_index, ignored):
@@ -160,8 +182,9 @@ def manage_new_client(client_index, ignored):
             if k == i:
                 for s in range(len(clients)):
                     if s != k:
-                        clients[k].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[s]['name'],
-                                                   'id': clients[s]['id']}))
+                        clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value,
+                                                             'name': clients[s]['name'],
+                                                             'id': clients[s]['id']}))
             clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[i]['name'],
                                                  'id': clients[i]['id']}))
 
@@ -190,7 +213,7 @@ def player_loop(i):
             send_new_question(i)
         elif is_an_answer(data):
             # invia i nuovi punteggi a tutti e manda una nuova domanda
-            update_score(int(data['answer']), i)
+            update_score(int(pd.decode(data)['answer']), i)
             for c in clients:
                 if c['present'] is True:
                     c['client'].send(pd.encode({'p_id': pt.Packet.player_score.value, 'client': clients[i]['id'],
