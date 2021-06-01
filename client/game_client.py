@@ -93,6 +93,15 @@ final_frame.pack(side=tk.TOP)
 middle_frame.pack()
 
 
+def on_closing():
+    if server is not None:
+        server.close()
+    window_main.destroy()
+
+
+window_main.protocol("WM_DELETE_WINDOW", on_closing)
+
+
 def enable_disable_buttons(todo):
     if todo == "disable":
         btn_one.config(state=tk.DISABLED)
@@ -108,6 +117,7 @@ def send_answer():
     global server
     server.send(pd.encode({"p_id": 4, "answer": ent_answer.get()}))
     ent_answer.delete(0, 'end')
+    ent_answer.config(state=tk.DISABLED)
     btn_send.config(state=tk.DISABLED)
 
 
