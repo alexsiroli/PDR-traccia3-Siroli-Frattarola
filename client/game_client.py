@@ -214,7 +214,7 @@ def manage_messages_from_server(sck, m):
                 enable_disable_buttons("active")
                 lbl_final_result["text"] = "PARTITA IN CORSO..."
                 break
-            if data["name"] == your_name:
+            if data["name"] == your_name and your_id == "":
                 your_id = data["id"]
             players_data.append({"name": data["name"], "id": data["id"], "score": 0})
             players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(
