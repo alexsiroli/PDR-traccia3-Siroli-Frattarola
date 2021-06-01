@@ -67,8 +67,6 @@ button_frame.pack()
 rules_frame = tk.Frame(middle_frame)
 lbl_outcome = tk.Label(rules_frame, text="", font="Helvetica 13 bold")
 lbl_outcome.pack()
-lbl_rules = tk.Label(rules_frame, text="Rispondi alla seguente domanda:")
-lbl_rules.pack()
 rules_frame.pack(side=tk.TOP)
 
 form_frame = tk.Frame(middle_frame)
@@ -84,10 +82,10 @@ form_frame.pack(side=tk.TOP)
 btn_send.config(state=tk.DISABLED)
 
 final_frame = tk.Frame(middle_frame)
-lbl_result = tk.Label(final_frame, text="Giusto! +1 - Sbagliato! -1", foreground="blue", font="Helvetica 14 bold")
+lbl_result = tk.Label(final_frame, text="", foreground="blue", font="Helvetica 14 bold")
 lbl_result.pack()
 tk.Label(final_frame, text="***********************************************************").pack()
-lbl_final_result = tk.Label(final_frame, text="PARTITA FINITA!", font="Helvetica 13 bold", foreground="blue")
+lbl_final_result = tk.Label(final_frame, text="", font="Helvetica 13 bold", foreground="blue")
 lbl_final_result.pack()
 tk.Label(final_frame, text="***********************************************************").pack()
 final_frame.pack(side=tk.TOP)
@@ -150,6 +148,8 @@ def choice(arg):
         lbl_outcome["text"] = "Complimenti! :)"
         lbl_outcome["color"] = "green"
         server.send(pd.encode({"p_id": 2}))
+        lbl_rules = tk.Label(rules_frame, text="Rispondi alla seguente domanda:")
+        lbl_rules.pack()
         enable_disable_buttons("disable")
     else:
         lbl_outcome["text"] = "Mi dispiace :("
@@ -163,7 +163,7 @@ def update_scores():
 
 
 def manage_messages_from_server(sck, m):
-    global lbl_question, your_id
+    global lbl_question, your_id, my_score
 
     while True:
         data = sck.recv(BUFFER_SIZE)
@@ -192,6 +192,16 @@ def manage_messages_from_server(sck, m):
             btn_send.config(state=tk.ACTIVE)
         elif data["p_id"] == 5:  # mi arriva il punteggio di qualcuno
             if data["client"] == your_id:
+                for player in players_data:
+                    if player["id"] == your_id:
+                        my_score = player["score"]
+                        player["score"] = data["score"]
+                if data["score"] > my_score:
+                    lbl_result["text"] = "Giusto! +1"
+                    lbl_result["color"] = "green"
+                else:
+                    lbl_result["text"] = "Errato! -1"
+                    lbl_result["color"] = "red"
                 update_scores()
             else:
                 for opp in players_data:
@@ -208,6 +218,7 @@ def manage_messages_from_server(sck, m):
                 if opp["id"] == data["client"]:
                     opp["score"] = "Vincitore"
             update_scores()
+            lbl_final_result["text"] = "PARTITA TERMINATA!"
             break
 
             # Avvia il timer
