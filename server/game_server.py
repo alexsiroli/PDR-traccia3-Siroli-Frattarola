@@ -2,7 +2,9 @@
 # Giovanni Pau - Andrea Piroddi
 
 # importiamo i moduli che utilizzeremo
+import sys as os
 import tkinter as tk
+import sys
 from tkinter import messagebox
 import socket
 import threading
@@ -12,6 +14,12 @@ import packet_type as pt
 from time import sleep
 
 BUFFER_SIZE = 4096
+server = None
+HOST_ADDR = '127.0.0.1'
+HOST_PORT = 8080
+clients = []
+clients_number = 2
+max_points = 2
 
 window = tk.Tk()
 window.title("Server")
@@ -20,7 +28,7 @@ window.title("Server")
 topFrame = tk.Frame(window)
 btnStart = tk.Button(topFrame, text="Start", command=lambda: start_server())
 btnStart.pack(side=tk.LEFT)
-btnStop = tk.Button(topFrame, text="Stop", command=lambda: stop_server(), state=tk.DISABLED)
+btnStop = tk.Button(topFrame, text="Stop", command=lambda: stop_server(server), state=tk.DISABLED)
 btnStop.pack(side=tk.RIGHT)
 topFrame.pack(side=tk.TOP, pady=(5, 0))
 
@@ -57,14 +65,6 @@ scrollBar.config(command=tkDisplay.yview)
 tkDisplay.config(yscrollcommand=scrollBar.set, background="#F4F6F7", highlightbackground="grey", state="disabled")
 clientFrame.pack(side=tk.BOTTOM, pady=(5, 10))
 
-server = None
-HOST_ADDR = '127.0.0.1'
-HOST_PORT = 8080
-clients = []
-clients_number = 2
-max_points = 3
-game_is_over = False
-
 
 # Avvia la funzione server
 def start_server():
@@ -91,29 +91,39 @@ def start_server():
 
 
 # Arresta la funzione server
-def stop_server():
-    global server
+def stop_server(s):
+    global clients
     btnStart.config(state=tk.NORMAL)
     btnStop.config(state=tk.DISABLED)
+    sys.exit()
 
 
 def send_game_start():
     global clients
     for c in clients:
-        c['client'].send(pd.encode({'p_id': pt.Packet.start.value}))
+        if c['present'] is True:
+            print("Mando start a " + c['name'])
+            c['client'].send(pd.encode({'p_id': pt.Packet.start.value}))
+
+
+def presents():
+    i = 0
+    for c in clients:
+        if c['present'] is True:
+            i += 1
+    return i
 
 
 def accept_clients(the_server, y):
     global clients_number
-    for pl in clients:
-        threading._start_new_thread(manage_new_client, (clients.index(pl), False))
-    while len(clients) < clients_number:
+    print("New game ->" + str(len(clients)))
+    while presents() < clients_number:
         client, addr = the_server.accept()
         clients.append(create_new_client(addr, client))
         print(clients[-1]['addr'])
         # utilizza un thread in modo da non intasare il thread della gui
         threading._start_new_thread(manage_new_client, (len(clients) - 1, True))
-    sleep(1)
+    sleep(3)
     send_game_start()
 
 
@@ -163,26 +173,17 @@ def game_over(i):
 
 
 def stop_game(i):
-    global clients, game_is_over
-    game_is_over = True
-    presents = 0
+    global clients
     for c in clients:
         if c['present'] is True:
-            presents += 1
+            c['score'] = 0
             c['client'].send(pd.encode({"p_id": pt.Packet.game_over.value, "winner": clients[int(i)]['id']}))
-    if presents < len(clients):
-        tmp = []
-        for c in clients:
-            if c['present'] is True:
-                tmp.append(c)
-        clients = tmp
-        threading._start_new_thread(accept_clients, (server, ""))
+    threading._start_new_thread(accept_clients, (server, ""))
     update_client_names_display()
 
 
 def manage_new_client(client_index, is_new):
     global server, clients, game_is_over
-
     # riceve il nome del client
     i = int(client_index)
     if is_new:
@@ -206,7 +207,7 @@ def manage_new_client(client_index, is_new):
 def player_loop(i):
     global clients, game_is_over
     i = int(i)
-    while not game_is_over:
+    while True:
         # estrae il messaggio del giocatore dai dati ricevuti
         try:
             data = clients[i]['client'].recv(BUFFER_SIZE)
@@ -221,12 +222,13 @@ def player_loop(i):
         elif is_an_answer(data):
             # invia i nuovi punteggi a tutti e manda una nuova domanda
             update_score(int(pd.decode(data)['answer']), i)
-            for c in clients:
-                if c['present'] is True:
-                    c['client'].send(pd.encode({'p_id': pt.Packet.player_score.value, 'client': clients[i]['id'],
-                                                'score': clients[i]['score']}))
             if game_over(i):
                 stop_game(i)
+            else:
+                for c in clients:
+                    if c['present'] is True:
+                        c['client'].send(pd.encode({'p_id': pt.Packet.player_score.value, 'client': clients[i]['id'],
+                                                    'score': clients[i]['score']}))
 
 
 def send_new_question(i):
