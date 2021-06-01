@@ -68,7 +68,7 @@ game_is_over = False
 
 # Avvia la funzione server
 def start_server():
-    global server, HOST_ADDR, HOST_PORT,clients_number,max_points
+    global server, HOST_ADDR, HOST_PORT, clients_number, max_points
     try:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print(socket.AF_INET)
@@ -105,12 +105,14 @@ def send_game_start():
 
 def accept_clients(the_server, y):
     global clients_number
+    for pl in clients:
+        threading._start_new_thread(manage_new_client, (clients.index(pl), False))
     while len(clients) < clients_number:
         client, addr = the_server.accept()
         clients.append(create_new_client(addr, client))
         print(clients[-1]['addr'])
         # utilizza un thread in modo da non intasare il thread della gui
-        threading._start_new_thread(manage_new_client, (len(clients) - 1, ""))
+        threading._start_new_thread(manage_new_client, (len(clients) - 1, True))
     sleep(1)
     send_game_start()
 
@@ -163,37 +165,42 @@ def game_over(i):
 def stop_game(i):
     global clients, game_is_over
     game_is_over = True
+    presents = 0
     for c in clients:
         if c['present'] is True:
+            presents += 1
             c['client'].send(pd.encode({"p_id": pt.Packet.game_over.value, "winner": clients[int(i)]['id']}))
+    if presents < len(clients):
+        tmp = []
+        for c in clients:
+            if c['present'] is True:
+                tmp.append(c)
+        clients = tmp
+        threading._start_new_thread(accept_clients, (server, ""))
     update_client_names_display()
 
 
-def manage_new_client(client_index, ignored):
+def manage_new_client(client_index, is_new):
     global server, clients, game_is_over
 
     # riceve il nome del client
     i = int(client_index)
-    clients[i]['name'] = pd.decode(clients[i]['client'].recv(BUFFER_SIZE))['name']
-    update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
-    # invia il nome dell'avversario
-    for k in range(len(clients)):
-        if clients[k]['present'] is True:
-            if k == i:
-                for s in range(len(clients)):
-                    if s != k:
-                        clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value,
-                                                             'name': clients[s]['name'],
-                                                             'id': clients[s]['id']}))
-            clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[i]['name'],
-                                                 'id': clients[i]['id']}))
-
+    if is_new:
+        clients[i]['name'] = pd.decode(clients[i]['client'].recv(BUFFER_SIZE))['name']
+        update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
+        # invia il nome dell'avversario
+        for k in range(len(clients)):
+            if clients[k]['present'] is True:
+                if k == i:
+                    for s in range(len(clients)):
+                        if s != k:
+                            clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value,
+                                                                 'name': clients[s]['name'],
+                                                                 'id': clients[s]['id']}))
+                clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[i]['name'],
+                                                     'id': clients[i]['id']}))
     # rimane in attesa
     player_loop(i)
-    try:
-        clients[i]['socket'].close()
-    except Exception as e:
-        pass
 
 
 def player_loop(i):
