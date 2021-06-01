@@ -101,13 +101,13 @@ def create_new_client(addr, client):
 
 # controlla se utente ha chiesto una domanda
 def ask_for_question(data):
-    if pd.decode(data)['p_id'] == pt.Packet.new_question_request:
+    if pd.decode(data)['p_id'] == pt.Packet.new_question_request.value:
         return True
     return False
 
 
 def is_an_answer(data):
-    if pd.decode(data)['p_id'] == pt.Packet.answer:
+    if pd.decode(data)['p_id'] == pt.Packet.answer.value:
         return True
     return False
 
@@ -120,7 +120,7 @@ def player_left(index):
     clients[index]['present'] = False
     for c in clients:
         if c['present'] is True:
-            c['client'].send(pd.encode({'p_id': pt.Packet.player_left, 'client': clients[index]['id']}))
+            c['client'].send(pd.encode({'p_id': pt.Packet.player_left.value, 'client': clients[index]['id']}))
     update_client_names_display()
 
 
@@ -144,7 +144,7 @@ def stop_game(i):
     global clients, game_is_over
     game_is_over = True
     for c in clients:
-        c['client'].send(pd.encode({"p_id": pt.Packet.game_over, "winner": clients[int(i)]['id']}))
+        c['client'].send(pd.encode({"p_id": pt.Packet.game_over.value, "winner": clients[int(i)]['id']}))
 
 
 def manage_new_client(client_index, ignored):
@@ -160,9 +160,9 @@ def manage_new_client(client_index, ignored):
             if k == i:
                 for s in range(len(clients)):
                     if s != k:
-                        clients[k].send(pd.encode({'p_id': pt.Packet.new_player, 'name': clients[s]['name'],
+                        clients[k].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[s]['name'],
                                                    'id': clients[s]['id']}))
-            clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player, 'name': clients[i]['name'],
+            clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[i]['name'],
                                                  'id': clients[i]['id']}))
 
     # rimane in attesa
@@ -193,7 +193,8 @@ def player_loop(i):
             update_score(data['answer'], i)
             for c in clients:
                 if c['present'] is True:
-                    c['client'].send(pd.encode({'p_id': pt.Packet.player_score, 'client': clients[i]['id'], 'score': clients[i]['score']}))
+                    c['client'].send(pd.encode({'p_id': pt.Packet.player_score.value, 'client': clients[i]['id'],
+                                                'score': clients[i]['score']}))
             if game_over(i):
                 stop_game(i)
 
@@ -202,7 +203,7 @@ def send_new_question(i):
     global clients
     question = generate_new_question()
     clients[int(i)]['answer'] = question[1]
-    clients[int(i)]['client'].send(pd.encode({'p_id': pt.Packet.new_question, 'question': question[0]}))
+    clients[int(i)]['client'].send(pd.encode({'p_id': pt.Packet.new_question.value, 'question': question[0]}))
 
 
 def generate_new_question():
