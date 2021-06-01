@@ -37,7 +37,7 @@ top_message_frame.pack(side=tk.TOP)
 top_frame = tk.Frame(window_main)
 ranking_frame = tk.Frame(top_frame, highlightbackground="blue", highlightcolor="blue", highlightthickness=2)
 lbl_title_name = tk.Label(ranking_frame, text="---- Classifica attuale ----", font="Helvetica 13 bold")
-lbl_title_name.grid(row=0, column=0, padx=5, pady=8)
+lbl_title_name.pack()
 ranking_frame.pack(padx=(10, 10))
 tk.Label(top_frame, text="***********************************************************").pack()
 tk.Label(top_frame, text="Scegli un emoji", font="Helvetica 13").pack()
@@ -168,13 +168,13 @@ def manage_messages_from_server(sck, m):
         if not data:
             break
         data = pd.decode(data)
-        if data["p_id"] == pt.Packet.start.value:
+        if int(data["p_id"]) == pt.Packet.start.value:
             enable_disable_buttons("active")
             break
         if data["name"] == your_name:
             your_id = data["id"]
         players_data.append({"name": data["name"], "id": data["id"], "score": 0})
-        players_data[-1]["label"] = tk.Label(ranking_frame, text=data["name"] + " -> " + data["score"])
+        players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(players_data[-1]["score"]))
         players_data[-1]["label"].pack()
 
     while True:  # finche non è finita la partita
