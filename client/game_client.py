@@ -11,7 +11,6 @@ import threading
 window_main = tk.Tk()
 window_main.title("Il Gioco delle Tabelline")
 
-# client di rete
 server = None
 HOST_ADDR = '127.0.0.1'
 HOST_PORT = 8080
@@ -93,13 +92,14 @@ final_frame.pack(side=tk.TOP)
 
 middle_frame.pack()
 
-
+# azioni da eseguire per la chiusura
 def on_closing():
     if server is not None:
         server.close()
     window_main.destroy()
 
 
+# se viene interrotta la connessione con server
 def connection_interrupted():
     tk.messagebox.showerror(title="Errore", message="La sessione è stata chiusa.")
     on_closing()
@@ -108,6 +108,7 @@ def connection_interrupted():
 window_main.protocol("WM_DELETE_WINDOW", on_closing)
 
 
+# per disattivare o attivare i button delle emoji
 def enable_disable_buttons(todo):
     if todo == "disable":
         btn_one.config(state=tk.DISABLED)
@@ -119,20 +120,22 @@ def enable_disable_buttons(todo):
         btn_three.config(state=tk.NORMAL)
 
 
+# invio di una risposta
 def send_answer():
     global server
     try:
         result = int(ent_answer.get())
         try:
-            server.send(pd.encode({"p_id": 4, "answer": result}))
+            server.send(pd.encode({"p_id": pt.Packet.answer.value, "answer": result}))
         except:
             connection_interrupted()
+
+        # disabilito gli elementi per inviare una risposta
         ent_answer.delete(0, 'end')
         ent_answer.config(state=tk.DISABLED)
         btn_send.config(state=tk.DISABLED)
     except ValueError:
         tk.messagebox.showerror(title="Errore", message="Devi inserire un numero!")
-
 
 
 def connect():
@@ -156,26 +159,27 @@ def connect_to_server(name):
             connection_interrupted()
         lbl_final_result["text"] = "LA PARTITA STA PER COMINCIARE..."
 
-        # disable widgets
+        # disabilita gli elementi per l'inserimento del nome
         btn_connect.config(state=tk.DISABLED)
         ent_name.config(state=tk.DISABLED)
         lbl_name.config(state=tk.DISABLED)
 
         # avvia un thread per continuare a ricevere messaggi dal server
-        # non bloccare il thread principale :)
         threading._start_new_thread(manage_messages_from_server, (server, ""))
-    except Exception as e:
-        print(e)
-        tk.messagebox.showerror(title="ERROR!!!", message="Cannot connect to host: " + HOST_ADDR + " on port: " + str(
+    except Exception:
+        tk.messagebox.showerror(title="Errore!", message="Cannot connect to host: " + HOST_ADDR + " on port: " + str(
             HOST_PORT) + " Server may be Unavailable. Try again later")
 
 
+# azioni da eseguire quando si sceglie una delle tre emoji
 def choice(arg):
-    global server
+    # calcolo un numero random, sarà il numero della emoji trabocchetto
     rnd = random.randint(1, 3)
     if arg != rnd:
+        # l'emoji non è trabocchetto
         lbl_outcome["text"] = "Complimenti! :)"
         lbl_outcome.configure(foreground="green")
+        # invio la richiesta di una domanda
         try:
             server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
         except:
@@ -184,22 +188,26 @@ def choice(arg):
         lbl_rules.pack()
         enable_disable_buttons("disable")
     else:
+        # l'emoji è trabocchetto
         lbl_outcome["text"] = "Mi dispiace :("
         lbl_outcome.configure(foreground="red")
         lbl_final_result["text"] = "SEI STATO ELIMINATO"
+        # l'utente viene disconnesso
         server.close()
 
 
+# aggiornamento della classifica in tempo reale
 def update_scores():
     for player in players_data:
         player["label"]["text"] = player["name"] + " -> " + str(player["score"])
 
 
+# gestione di tutti i messaggi ricevuti dal server
 def manage_messages_from_server(sck, m):
     global lbl_question, your_id
 
-    while True:
-        while True:
+    while True:  # per ogni partita
+        while True:  # finche il server non invia l'inizio della partita
             data = ""
             try:
                 data = sck.recv(BUFFER_SIZE)
@@ -210,12 +218,16 @@ def manage_messages_from_server(sck, m):
                 connection_interrupted()
                 break
             data = pd.decode(data)
-            if int(data["p_id"]) == pt.Packet.start.value:
+
+            if int(data["p_id"]) == pt.Packet.start.value:  # se il messsaggio indica l'inizio della partita
                 enable_disable_buttons("active")
                 lbl_final_result["text"] = "PARTITA IN CORSO..."
                 break
-            if data["name"] == your_name and your_id == "":
+
+            if data["name"] == your_name and your_id == "":  # se il messaggio indica le mie informazioni
                 your_id = data["id"]
+
+            # tutti i dati del giocatore vengono salvati
             players_data.append({"name": data["name"], "id": data["id"], "score": 0})
             players_data[-1]["label"] = tk.Label(ranking_frame, text=players_data[-1]["name"] + " -> " + str(
                 players_data[-1]["score"]))
@@ -236,46 +248,58 @@ def manage_messages_from_server(sck, m):
                 lbl_question["text"] = data["question"]
                 ent_answer.config(state=tk.NORMAL)
                 btn_send.config(state=tk.ACTIVE)
+
             elif int(data["p_id"]) == pt.Packet.player_score.value:  # mi arriva il punteggio di qualcuno
+
+                # se il punteggio è il mio capisco se la risposta che ho inviato era giusta o sbagliata
+                # e richiedo una nuova domanda
                 if data["client"] == your_id:
                     your_score = 0
                     for player in players_data:
                         if player["id"] == your_id:
                             your_score = int(player["score"])
                             player["score"] = data["score"]
-                    if int(data["score"]) > your_score:
+                    if int(data["score"]) > your_score:  # la risposta era corretta
                         lbl_result["text"] = "Giusto! +1"
                         lbl_result.configure(foreground="green")
-                    else:
+                    else:  # la risposta era sbagliata
                         lbl_result["text"] = "Errato! -1"
                         lbl_result.configure(foreground="red")
                     update_scores()
+
+                    # richiedo una nuova domanda
                     try:
                         server.send(pd.encode({"p_id": pt.Packet.new_question_request.value}))
                     except:
                         connection_interrupted()
-                else:
+                else:  # il punteggio è di un altro giocatore
                     for opp in players_data:
                         if opp["id"] == data["client"]:
                             opp["score"] = data["score"]
                     update_scores()
-            elif int(data["p_id"]) == pt.Packet.player_left.value:  # uno è stato eliminato
+
+            elif int(data["p_id"]) == pt.Packet.player_left.value:  # un giocatore è stato eliminato
                 for opp in players_data:
                     if opp["id"] == data["client"]:
                         opp["score"] = "Eliminato"
                 update_scores()
-            elif int(data["p_id"]) == pt.Packet.game_over.value:  # se uno ha vinto
+
+            elif int(data["p_id"]) == pt.Packet.game_over.value:  # un giocatore ha vinto
                 for opp in players_data:
                     if opp["id"] == data["winner"]:
                         opp["score"] = "Vincitore"
                 update_scores()
+                enable_disable_buttons("disable")
                 break
 
+        # resetto la grafica per una nuova partita
         lbl_outcome["text"] = ""
         lbl_rules["text"] = ""
         lbl_result["text"] = ""
         lbl_question["text"] = ""
         lbl_final_result["text"] = "NUOVA PARTITA A BREVE..."
+
+        # rimuovo dalla classifica i giocatori eliminati e resetto i punteggi degli altri
         for player in players_data:
             if player["score"] == "Eliminato":
                 player["label"].destroy()
