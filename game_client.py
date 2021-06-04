@@ -1,3 +1,5 @@
+# Marco Frattarola - Alex Siroli
+
 import random
 import tkinter as tk
 from tkinter import PhotoImage
@@ -49,9 +51,9 @@ lbl_line = tk.Label(middle_frame, text="****************************************
 
 button_frame = tk.Frame(window_main)
 
-photo_one = PhotoImage(file=r"love.png")
-photo_two = PhotoImage(file=r"thinky.png")
-photo_three = PhotoImage(file=r"sassypng.png")
+photo_one = PhotoImage(file=r"images/love.png")
+photo_two = PhotoImage(file=r"images/thinky.png")
+photo_three = PhotoImage(file=r"images/sassypng.png")
 
 btn_one = tk.Button(button_frame, text="1", command=lambda: choice(1), state=tk.DISABLED, image=photo_one)
 btn_two = tk.Button(button_frame, text="2", command=lambda: choice(2), state=tk.DISABLED, image=photo_two)

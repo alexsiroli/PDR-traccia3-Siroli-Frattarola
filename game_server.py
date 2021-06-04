@@ -1,8 +1,4 @@
-# Laboratorio di Programmazione di Reti - Università di Bologna - Campus di Cesena
-# Giovanni Pau - Andrea Piroddi
-
-# importiamo i moduli che utilizzeremo
-import sys as os
+# Marco Frattarola - Alex Siroli
 import tkinter as tk
 import sys
 from tkinter import messagebox
@@ -31,14 +27,14 @@ btnStart.pack(side=tk.LEFT)
 btnStop = tk.Button(topFrame, text="Stop", command=lambda: stop_server(server), state=tk.DISABLED)
 btnStop.pack(side=tk.RIGHT)
 topFrame.pack(side=tk.TOP, pady=(5, 0))
-
+# sezione in cui è possibile inserire il numero di giocatori
 players_num_frame = tk.Frame(window)
 lbl_players = tk.Label(players_num_frame, text="Players number ->")
 lbl_players.pack(side=tk.LEFT)
 player_num_ent = tk.Entry(players_num_frame)
 player_num_ent.pack(side=tk.RIGHT)
 players_num_frame.pack(side=tk.TOP)
-
+# sezione in cui è possibile inserire il numero di punti necessari per vincere
 points_num_frame = tk.Frame(window)
 lbl_points = tk.Label(points_num_frame, text="    Points to win ->")
 lbl_points.pack(side=tk.LEFT)
@@ -98,6 +94,7 @@ def stop_server(s):
     sys.exit()
 
 
+# invia il messaggio di inizio partita a tutti i presenti
 def send_game_start():
     global clients
     for c in clients:
@@ -106,6 +103,7 @@ def send_game_start():
             c['client'].send(pd.encode({'p_id': pt.Packet.start.value}))
 
 
+# conta il numero di giocatori presenti
 def presents():
     i = 0
     for c in clients:
@@ -114,6 +112,8 @@ def presents():
     return i
 
 
+# funzione che accetta nuove connessioni e assegna ad ogni nuovo giocatore un
+# thread che ne gestisce il comportamento
 def accept_clients(the_server, y):
     global clients_number
     print("New game ->" + str(len(clients)))
@@ -127,6 +127,7 @@ def accept_clients(the_server, y):
     send_game_start()
 
 
+# crea un nuovo giocatore
 def create_new_client(addr, client):
     return {'client': client, 'addr': addr, 'name': "", 'answer': -1, 'score': 0, 'present': True, 'id': len(clients)}
 
@@ -138,6 +139,7 @@ def ask_for_question(data):
     return False
 
 
+# controlla se utente ha mandato una risposta
 def is_an_answer(data):
     if int(pd.decode(data)['p_id']) == pt.Packet.answer.value:
         return True
@@ -147,7 +149,7 @@ def is_an_answer(data):
 # Funzione per gestire l'uscita di un client
 def player_left(index):
     global clients
-    # send removed player to all
+    # avvisa gli altri giocatori che un giocatore è uscito
     index = int(index)
     clients[index]['present'] = False
     for c in clients:
@@ -156,6 +158,7 @@ def player_left(index):
     update_client_names_display()
 
 
+# aggiorna il punteggio del giocatore
 def update_score(answer, index):
     i = int(index)
     if answer == clients[i]['answer']:
@@ -164,6 +167,7 @@ def update_score(answer, index):
         clients[i]['score'] -= 1
 
 
+# controlla se la partita è giunta al termine
 def game_over(i):
     global clients, max_points
     i = int(i)
@@ -172,6 +176,7 @@ def game_over(i):
     return False
 
 
+# notifica ai giocatori che la partita è finita e comunica loro il vincitore
 def stop_game(i):
     global clients
     for c in clients:
@@ -182,18 +187,22 @@ def stop_game(i):
     update_client_names_display()
 
 
+# funzione che si occupa di gestire la comunicazione con un singolo client
 def manage_new_client(client_index, is_new):
-    global server, clients, game_is_over
+    global server, clients
     # riceve il nome del client
     i = int(client_index)
     if is_new:
+        # leggo il nome del nuovo giocatore
         clients[i]['name'] = pd.decode(clients[i]['client'].recv(BUFFER_SIZE))['name']
         update_client_names_display()  # aggiornare la visualizzazione dei nomi dei client
-        # invia il nome dell'avversario
+        # invio agli altri il nome del nuovo arrivato e il suo id
         for k in range(len(clients)):
             if clients[k]['present'] is True:
-                clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value, 'name': clients[i]['name'],
+                clients[k]['client'].send(pd.encode({'p_id': pt.Packet.new_player.value,
+                                                     'name': clients[i]['name'],
                                                      'id': clients[i]['id']}))
+                # invio al nuovo arrivato il nome dei giocatori gia presenti in partita
                 if k == i:
                     for s in range(len(clients)):
                         if s != k and clients[s]['present'] is True:
@@ -201,12 +210,12 @@ def manage_new_client(client_index, is_new):
                                                                  'name': clients[s]['name'],
                                                                  'id': clients[s]['id']}))
 
-    # rimane in attesa
     player_loop(i)
 
 
+# funziona che si occupa di rispondere alle richieste del client
 def player_loop(i):
-    global clients, game_is_over
+    global clients
     i = int(i)
     while True:
         # estrae il messaggio del giocatore dai dati ricevuti
@@ -221,7 +230,7 @@ def player_loop(i):
             # invia una nuova domanda
             send_new_question(i)
         elif is_an_answer(data):
-            # invia i nuovi punteggi a tutti e manda una nuova domanda
+            # invia i nuovi punteggi a tutti o termina la partita
             update_score(int(pd.decode(data)['answer']), i)
             if game_over(i):
                 stop_game(i)
@@ -232,6 +241,7 @@ def player_loop(i):
                                                     'score': clients[i]['score']}))
 
 
+# invia una nuova domanda ad un giocatore
 def send_new_question(i):
     global clients
     question = generate_new_question()
@@ -239,13 +249,14 @@ def send_new_question(i):
     clients[int(i)]['client'].send(pd.encode({'p_id': pt.Packet.new_question.value, 'question': question[0]}))
 
 
+# crea una nuova domanda
 def generate_new_question():
     a = rnd.randint(0, 10)
     b = rnd.randint(0, 10)
     return "{} * {}".format(a, b), int(a * b)
 
 
-# Aggiorna la visualizzazione del nome del client quando un nuovo client si connette O
+# Aggiorna la visualizzazione del nome del client quando un nuovo client si connette o
 # Quando un client connesso si disconnette
 def update_client_names_display():
     tkDisplay.config(state=tk.NORMAL)

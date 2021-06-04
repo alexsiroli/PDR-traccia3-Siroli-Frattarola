@@ -1,11 +1,8 @@
-import socket
-import packet_type as pt
-
 VALUE_END = '$'
 KEY_END = '='
 
 
-# returns a dictionary with key-values from the string
+# ritorna un dizionario da una stringa
 def decode(string):
     string = string.decode()
     actual_word = ""
@@ -25,7 +22,7 @@ def decode(string):
     return decoded
 
 
-# return a string from a dictionary
+# ritorna una stringa da un dizionario
 def encode(values):
     string = ""
     i = 0
@@ -34,6 +31,3 @@ def encode(values):
         string += (str(k) + KEY_END + str(values[k]) + VALUE_END)
     return string[:-1].encode()
 
-# print(decode("ciao=1$bau=2"))
-# dictionary = {'marco': 4, 'p_id' : pt.Packet.start.value}
-# print(encode(dictionary))
